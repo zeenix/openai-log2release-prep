@@ -42,11 +42,8 @@ fn main() {
         .filter(|tag: &Tag| tag.release.is_some())
         .collect();
 
-    // Two problems:
-    //
-    // 1. The git log output is long and contains a lot of noise.
-    // 2. We're creating the `range` incorrectly by assuming the previous tag belongs to the same
-    //    subproject.
+    // Problem: We're creating the `range` incorrectly by assuming the previous tag belongs to the
+    // same subproject.
 
     let mut training_data = vec![];
     for i in 0..tags.len() {
@@ -62,7 +59,14 @@ fn main() {
         };
 
         let git_log = Command::new("git")
-            .args(&["log", "--no-color", &range, sub_project])
+            .args(&[
+                "log",
+                "--no-color",
+                // <subject> <newline> <body> <newline>
+                "--pretty=format:%s%n%b%n",
+                &range,
+                sub_project,
+            ])
             .current_dir(local_repo)
             .output()
             .expect("failed to execute process")
