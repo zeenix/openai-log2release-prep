@@ -1,4 +1,4 @@
-use std::{env::args, process::Command};
+use std::{collections::HashMap, env::args, process::Command};
 
 use gitlab::{
     api::{common::SortOrder, paged, projects::repository::tags::Tags, Pagination, Query},
@@ -34,49 +34,54 @@ fn main() {
         .sort(SortOrder::Ascending)
         .build()
         .unwrap();
-    let tags: Vec<_> = paged(tags_endpoint, Pagination::All)
+    let tags: Vec<Tag> = paged(tags_endpoint, Pagination::All)
         .query(&client)
-        .unwrap()
-        .into_iter()
-        // Only interested in release tags.
-        .filter(|tag: &Tag| tag.release.is_some())
-        .collect();
+        .unwrap();
 
-    // Problem: We're creating the `range` incorrectly by assuming the previous tag belongs to the
-    // same subproject.
-
-    let mut training_data = vec![];
-    for i in 0..tags.len() {
-        let range = if i == 0 {
-            format!("{}", tags[i].name)
-        } else {
-            format!("{}..{}", tags[i - 1].name, tags[i].name)
-        };
-        let components = tags[i].name.split('-').collect::<Vec<_>>();
-        let sub_project = match components.first() {
-            Some(sub_project) => sub_project,
+    let mut subproject_tags = HashMap::new();
+    for tag in tags {
+        if tag.release.is_none() {
+            // Only interested in release tags.
+            continue;
+        }
+        let subproject = match tag.name.split('-').next() {
+            Some(subproject) => subproject.to_owned(),
             None => continue,
         };
+        let subproject_tags = subproject_tags.entry(subproject).or_insert(vec![]);
+        subproject_tags.push(tag);
+    }
 
-        let git_log = Command::new("git")
-            .args(&[
-                "log",
-                "--no-color",
-                // <subject> <newline> <body> <newline>
-                "--pretty=format:%s%n%b%n",
-                &range,
-                sub_project,
-            ])
-            .current_dir(local_repo)
-            .output()
-            .expect("failed to execute process")
-            .stdout;
-        let git_log = Value::String(String::from_utf8(git_log).unwrap());
-        let release_notes = Value::String(tags[i].release.as_ref().unwrap().description.clone());
+    let mut training_data = vec![];
+    for (subproject, tags) in subproject_tags {
+        for i in 0..tags.len() {
+            let range = if i == 0 {
+                format!("{}", tags[i].name)
+            } else {
+                format!("{}..{}", tags[i - 1].name, tags[i].name)
+            };
 
-        let json = json!({ "prompt": git_log, "completion": release_notes });
+            let git_log = Command::new("git")
+                .args(&[
+                    "log",
+                    "--no-color",
+                    // <subject> <newline> <body> <newline>
+                    "--pretty=format:%s%n%b%n",
+                    &range,
+                    &subproject,
+                ])
+                .current_dir(local_repo)
+                .output()
+                .expect("failed to execute process")
+                .stdout;
+            let git_log = Value::String(String::from_utf8(git_log).unwrap());
+            let release_notes =
+                Value::String(tags[i].release.as_ref().unwrap().description.clone());
 
-        training_data.push(json);
+            let json = json!({ "prompt": git_log, "completion": release_notes });
+
+            training_data.push(json);
+        }
     }
 
     println!("{}", serde_json::to_string_pretty(&training_data).unwrap());
