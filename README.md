@@ -7,6 +7,7 @@ At the moment, it's a bit specific to zbus and hence the following is assumed:
 * Projects is hosted on a Gitlab instance.
 * The repo has subcrates/subprojects.
 * Tags are named `<subproject>-VERSION`.
+* Releases are published on Gitlab with release notes.
 
 ## Usage
 
