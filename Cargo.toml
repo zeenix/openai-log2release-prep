@@ -1,5 +1,5 @@
 [package]
-name = "chatgtp-prep-data"
+name = "openai-log2release-prep"
 version = "0.1.0"
 edition = "2021"
 
