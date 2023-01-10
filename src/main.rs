@@ -20,17 +20,27 @@ struct Release {
 
 fn main() {
     let args: Vec<String> = args().collect();
-    if args.len() < 2 {
-        println!("Usage: {} LOCAL_REPO_DIR", args[0]);
+    if args.len() < 3 {
+        println!("Usage: {} LOCAL_REPO_DIR GITLAB_REPO", args[0]);
 
         return;
     }
     let local_repo = &args[1];
+    let gitlab_repo = &args[2];
+    // Split gitlab URL into host and project.
+    let (host, project) = match gitlab_repo.split_once('/') {
+        Some((host, project)) => (host, project),
+        None => {
+            println!("Invalid gitlab repo URL: {}", gitlab_repo);
+
+            return;
+        }
+    };
 
     // Get all tags from gitlab using `gitlab` crate
-    let client = Gitlab::new("gitlab.freedesktop.org", "glpat-pUKXJxv88LPBAppYe6fD").unwrap();
+    let client = Gitlab::new(host, "glpat-pUKXJxv88LPBAppYe6fD").unwrap();
     let tags_endpoint = Tags::builder()
-        .project("dbus/zbus")
+        .project(project)
         .sort(SortOrder::Ascending)
         .build()
         .unwrap();
