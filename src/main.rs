@@ -1,4 +1,8 @@
-use std::{collections::HashMap, env::args, process::Command};
+use std::{
+    collections::HashMap,
+    env::{self, args},
+    process::Command,
+};
 
 use gitlab::{
     api::{common::SortOrder, paged, projects::repository::tags::Tags, Pagination, Query},
@@ -36,9 +40,10 @@ fn main() {
             return;
         }
     };
+    let gitlab_token = env::var("GITLAB_TOKEN").unwrap();
 
     // Get all tags from gitlab using `gitlab` crate
-    let client = Gitlab::new(host, "glpat-pUKXJxv88LPBAppYe6fD").unwrap();
+    let client = Gitlab::new(host, gitlab_token).unwrap();
     let tags_endpoint = Tags::builder()
         .project(project)
         .sort(SortOrder::Ascending)
